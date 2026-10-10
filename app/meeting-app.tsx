@@ -69,6 +69,7 @@ function TimeGrid({config, selected = new Set(), tentative = new Set(), paintMod
     <div ref={root} className={`time-grid ${editable ? 'paintable' : ''}`} style={{'--days':config.days.length} as CSSProperties} role="group" aria-label="曜日と時間帯" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={() => {stroke.current=null;}} onLostPointerCapture={() => {stroke.current=null;}} onPointerCancel={() => {if(stroke.current){const original=stroke.current.original;current.current=original;onChange?.(original.selected,original.tentative);stroke.current=null;}}}>
       <div className="grid-corner">時間 <small>JST</small></div>
       {config.days.map(day => <div className={`grid-day ${day>=5 ? 'extra-day' : ''}`} key={day}><DayLabel day={day}/></div>)}
+      <div className="grid-corner grid-time-right" aria-hidden="true">時間 <small>JST</small></div>
       {rows.map(minute => <div className="grid-row" key={minute}>
         <div className="grid-time">{time(minute)}<span>{time(minute+config.step)}</span></div>
         {config.days.map(day => {
@@ -79,9 +80,11 @@ function TimeGrid({config, selected = new Set(), tentative = new Set(), paintMod
             {counts ? <><span>〇{count}{all && <Check size={10}/>}</span><small>△{maybeCount}</small></> : active ? <span>〇</span> : maybe ? <span>△</span> : <span className="empty-mark"/>}
           </button> : <div key={key} className="slot unavailable" aria-label={`${DAYS[day]} ${time(minute)} 対象外`}>—</div>;
         })}
+        <div className="grid-time grid-time-right" aria-hidden="true">{time(minute)}<span>{time(minute+config.step)}</span></div>
       </div>)}
       <div className="grid-corner grid-bottom">曜日 <small>JST</small></div>
       {config.days.map(day => <div className={`grid-day grid-bottom ${day>=5 ? 'extra-day' : ''}`} key={`bottom-${day}`}><DayLabel day={day}/></div>)}
+      <div className="grid-corner grid-bottom grid-time-right" aria-hidden="true">曜日 <small>JST</small></div>
     </div>
   </div>;
 }
