@@ -1,7 +1,7 @@
 export const DAYS = ['月', '火', '水', '木', '金', '土', '日', '祝'];
 export const NOTICE = 'このページは、ミーティングの都合確認・調整のためだけに使います。ニックネームで回答し、本名・連絡先などの個人情報は入力しないでください。';
 export type Schedule = { days: number[]; start: number; end: number; extraStart: number; extraEnd: number; step: number };
-export type Answer = { id: string; name: string; slots: string[]; updatedAt: number };
+export type Answer = { id: string; name: string; slots: string[]; tentativeSlots?: string[]; comment?: string; updatedAt: number };
 export type Meeting = { id: string; title: string; description: string; config: Schedule; answers: Answer[] };
 export const DEFAULT_CONFIG: Schedule = { days: [0,1,2,3,4], start: 1080, end: 1320, extraStart: 480, extraEnd: 1320, step: 30 };
 export function time(minute: number) { return `${Math.floor(minute / 60)}:${String(minute % 60).padStart(2, '0')}`; }
@@ -38,10 +38,23 @@ export function validateSlots(value: unknown, config: Schedule): string[] {
 }
 export function rankSlots(meeting: Meeting) {
   const counts = new Map(allSlots(meeting.config).map(key => [key, 0]));
+  const tentative = new Map(allSlots(meeting.config).map(key => [key, 0]));
   for (const answer of meeting.answers) for (const key of new Set(answer.slots)) if (counts.has(key)) counts.set(key, counts.get(key)! + 1);
-  const sorted = [...counts].map(([key, count]) => ({key, count})).sort((a,b) => b.count - a.count || Number(a.key.split(':')[0]) - Number(b.key.split(':')[0]) || Number(a.key.split(':')[1]) - Number(b.key.split(':')[1]));
-  let rank = 0, previous = -1;
-  return sorted.map((slot, i) => { if (slot.count !== previous) rank = i + 1; previous = slot.count; return {...slot, rank}; });
+  for (const answer of meeting.answers) for (const key of new Set(answer.tentativeSlots ?? [])) if (tentative.has(key) && !answer.slots.includes(key)) tentative.set(key, tentative.get(key)! + 1);
+  const sorted = [...counts].map(([key, count]) => ({key, count, tentative:tentative.get(key)!})).sort((a,b) => b.count - a.count || b.tentative - a.tentative || Number(a.key.split(':')[0]) - Number(b.key.split(':')[0]) || Number(a.key.split(':')[1]) - Number(b.key.split(':')[1]));
+  let rank = 0, previous = '';
+  return sorted.map((slot, i) => { const score=`${slot.count}:${slot.tentative}`; if (score !== previous) rank = i + 1; previous = score; return {...slot, rank}; });
+}
+export function validateResponse(value: {slots?:unknown;tentativeSlots?:unknown;comment?:unknown}, config: Schedule) {
+  const slots=validateSlots(value.slots,config), tentativeSlots=validateSlots(value.tentativeSlots ?? [],config);
+  if (tentativeSlots.some(key=>slots.includes(key))) throw new Error('同じ時間に〇と△は設定できません。');
+  if (value.comment !== undefined && (typeof value.comment !== 'string' || value.comment.trim().length>500)) throw new Error('コメントは500文字以内で入力してください。');
+  return {slots,tentativeSlots,comment:typeof value.comment==='string'?value.comment.trim():''};
+}
+// Old records contain an array; new records keep both statuses and the comment in this JSON column.
+export function readResponse(stored: string, config: Schedule) {
+  const value=JSON.parse(stored);
+  return validateResponse(Array.isArray(value)?{slots:value}:value,config);
 }
 export function randomKey() {
   return Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join('');

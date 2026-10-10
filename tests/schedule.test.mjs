@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CONFIG, validateConfig, allSlots, validateSlots, rankSlots, strokePoints, randomKey, validateName } from '../lib/schedule.ts';
+import { DEFAULT_CONFIG, validateConfig, allSlots, validateSlots, rankSlots, strokePoints, randomKey, validateName, validateResponse, readResponse } from '../lib/schedule.ts';
 
 test('平日30分・土日祝8〜22時は独立した有効枠になる',()=>{
   const config=validateConfig({...DEFAULT_CONFIG,days:[0,1,2,3,4,5,6,7]});
@@ -42,4 +42,17 @@ test('名前の必須・長さと編集キーの形式',()=>{
   assert.equal(validateName('  ニックネーム  '),'ニックネーム');
   for(const name of ['',null,' '.repeat(3),'あ'.repeat(41)])assert.throws(()=>validateName(name));
   const keys=Array.from({length:100},randomKey);assert.equal(new Set(keys).size,100);assert.ok(keys.every(k=>/^[a-f0-9]{64}$/.test(k)));
+});
+test('旧形式の選択は〇として読み込み、新形式は△とコメントを復元',()=>{
+  assert.deepEqual(readResponse('["0:1080"]',DEFAULT_CONFIG),{slots:['0:1080'],tentativeSlots:[],comment:''});
+  const value={slots:['0:1080'],tentativeSlots:['1:1080'],comment:'  隔週なら参加できます\n時間は相談可  '};
+  assert.deepEqual(readResponse(JSON.stringify(value),DEFAULT_CONFIG),{...value,comment:value.comment.trim()});
+});
+test('重複状態・無効な△・コメントの型や上限を拒否',()=>{
+  for(const value of [{slots:['0:1080'],tentativeSlots:['0:1080']},{slots:[],tentativeSlots:['0:480']},{slots:[],comment:42},{slots:[],comment:'あ'.repeat(501)}])assert.throws(()=>validateResponse(value,DEFAULT_CONFIG));
+  assert.equal(validateResponse({slots:[],comment:'あ'.repeat(500)},DEFAULT_CONFIG).comment.length,500);
+});
+test('〇優先、同数なら△、同率と△だけの候補を正しく集計',()=>{
+  const ranks=rankSlots({config:DEFAULT_CONFIG,answers:[{slots:['0:1080','1:1080','2:1080'],tentativeSlots:['3:1080']},{slots:[],tentativeSlots:['1:1080','2:1080','3:1080']}]});
+  assert.deepEqual(ranks.slice(0,4).map(r=>[r.key,r.count,r.tentative,r.rank]),[['1:1080',1,1,1],['2:1080',1,1,1],['0:1080',1,0,3],['3:1080',0,2,4]]);
 });

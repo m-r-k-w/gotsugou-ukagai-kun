@@ -27,6 +27,19 @@ test('共有APIの保存・再編集・集計・権限・入力境界',async t=>
     assert.equal((await call(`/${event}?manage=1`,'GET',{},wrong)).status,403);
   });
   await t.test('本人の再編集・空の選択保存',async()=>{assert.equal((await call(`/${event}/answers/${answer}`,'PUT',{name:'テストA改',slots:[],config},editor)).status,200);const r=await call(`/${event}/answers/${answer}`,'GET',{},editor);assert.equal(r.data.name,'テストA改');assert.deepEqual(r.data.slots,[]);});
+  await t.test('〇・△と自由コメントを保存・復元・集計し、再編集できる',async()=>{
+    const comment='隔週なら参加できます。\n<img src=x onerror=alert(1)>\'--';
+    const body={name:'テストA改',slots:['3:1140'],tentativeSlots:['7:480'],comment,config};
+    assert.equal((await call(`/${event}/answers/${answer}`,'PUT',body,editor)).status,200);
+    const restored=await call(`/${event}/answers/${answer}`,'GET',{},editor);
+    assert.deepEqual(restored.data.slots,body.slots);assert.deepEqual(restored.data.tentativeSlots,body.tentativeSlots);assert.equal(restored.data.comment,comment);
+    const listing=await call('/'+event);assert.equal(listing.data.answers[0].comment,comment);assert.deepEqual(listing.data.answers[0].tentativeSlots,body.tentativeSlots);
+    assert.equal((await call(`/${event}/answers/${answer}`,'PUT',{...body,slots:[],tentativeSlots:[],comment:''},editor)).status,200);
+  });
+  await t.test('〇△重複・不正な△・500文字超コメントを拒否',async()=>{
+    for(const value of [{slots:['3:1140'],tentativeSlots:['3:1140']},{slots:[],tentativeSlots:['0:480']},{slots:[],comment:'あ'.repeat(501)},{slots:[],comment:{text:'不正'}}])assert.equal((await call(`/${event}/answers/${answer}`,'PUT',{name:'検証',config,...value},editor)).status,400);
+    const r=await call(`/${event}/answers/${answer}`,'GET',{},editor);assert.equal(r.data.name,'テストA改');assert.equal(r.data.comment,'');
+  });
   await t.test('回答開始後の時間枠変更を拒否、タイトルは更新可能',async()=>{
     assert.equal((await call('/'+event,'PATCH',{title:'更新',description:'',config:{...config,step:60}},admin)).status,409);
     assert.equal((await call('/'+event,'PATCH',{title:'検証・更新済み',description:'',config},admin)).status,200);
