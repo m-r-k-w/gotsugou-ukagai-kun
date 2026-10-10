@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="610" viewBox="0 0 900 610" role="img" aria-labelledby="title description">
+  <title id="title">ご都合うかがい君の使い方</title>
+  <desc id="description">主催者がページを作成して回答URLを共有。参加者はニックネームと〇・△、任意のコメントを入力して保存。集計を確認して定例時間を決めます。編集URLからあとで回答を修正できます。</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#55988a"/></marker></defs>
+  <rect width="900" height="610" rx="20" fill="#f7faf9"/>
+  <g font-family="'Noto Sans JP', 'Yu Gothic', Meiryo, sans-serif" fill="#23463e">
+    <text x="40" y="48" font-size="24" font-weight="700">定例の時間を、みんなで決める。</text>
+    <text x="40" y="77" font-size="14" fill="#6b817a">アカウント登録なし。いつもの曜日・時間を教えてください。</text>
+    <g fill="none" stroke="#55988a" stroke-width="2.5" marker-end="url(#arrow)">
+      <path d="M 290 170 H 318"/><path d="M 575 170 H 603"/><path d="M 735 224 V 270"/>
+      <path d="M 610 320 H 582"/><path d="M 325 320 H 297"/><path d="M 165 374 V 420"/>
+      <path d="M 450 374 V 420" stroke-dasharray="5 5"/>
+      <path d="M 575 470 H 603" stroke-dasharray="5 5"/>
+      <path d="M 860 470 H 881 V 320 H 865" stroke-dasharray="5 5"/>
+    </g>
+    <g stroke="#bfd9d1" fill="#ffffff">
+      <rect x="40" y="115" width="250" height="110" rx="14"/><rect x="325" y="115" width="250" height="110" rx="14"/>
+      <rect x="610" y="115" width="250" height="110" rx="14"/><rect x="610" y="265" width="250" height="110" rx="14"/>
+      <rect x="325" y="265" width="250" height="110" rx="14"/><rect x="40" y="265" width="250" height="110" rx="14"/>
+      <rect x="40" y="415" width="250" height="110" rx="14" fill="#e7f4ef"/>
+      <rect x="325" y="415" width="250" height="110" rx="14"/><rect x="610" y="415" width="250" height="110" rx="14"/>
+    </g>
+    <g font-size="12" fill="#267a6b" font-weight="600">
+      <text x="60" y="142">1　主催者</text><text x="345" y="142">2　主催者</text><text x="630" y="142">3　参加者</text>
+      <text x="630" y="292">4　参加者</text><text x="345" y="292">5　参加者</text><text x="60" y="292">6　みんな</text>
+      <text x="60" y="442">7　みんな</text><text x="345" y="442">あとから修正するには</text><text x="630" y="442">参加者本人</text>
+    </g>
+    <g font-size="18" font-weight="700">
+      <text x="60" y="172">調整ページをつくる</text><text x="345" y="172">回答URLを共有する</text><text x="630" y="172">ニックネームを入力</text>
+      <text x="630" y="322">〇・△を選んでなぞる</text><text x="345" y="322">回答を保存する</text><text x="60" y="322">集計・候補を見る</text>
+      <text x="60" y="472">定例の時間を決める</text><text x="345" y="472">編集URLを保管する</text><text x="630" y="472">編集URLで修正する</text>
+    </g>
+    <g font-size="13" fill="#6b817a">
+      <text x="60" y="201">聞きたい曜日・時間帯を設定</text><text x="345" y="201">管理URLは主催者だけで保管</text><text x="630" y="201">本名・メールアドレスは不要</text>
+      <text x="630" y="351">〇：参加できる　△：条件次第</text><text x="345" y="351">補足コメントも自由に入力</text><text x="60" y="351">参加状況とコメントも確認</text>
+      <text x="60" y="501">おすすめを参考にチームで相談</text><text x="345" y="501">自分専用。他人には渡さない</text><text x="630" y="501">変更して、もう一度保存</text>
+    </g>
+    <text x="40" y="565" font-size="13" fill="#6b817a">すべて日本時間。名前欄やコメントには本名・連絡先などの個人情報を入力しないでください。</text>
+  </g>
+</svg>
