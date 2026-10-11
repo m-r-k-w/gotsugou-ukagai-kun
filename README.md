@@ -5,6 +5,10 @@
 
 **[サイトを開く](https://gotsugou-ukagai-kun.mrkw.chatgpt.site/)**
 
+現在はコミュニティ向けの試験運用です。まず少人数でお試しください。
+利用のためにGitHubや環境構築は必要ありません。ソースのGitHubリポジトリは現在非公開で、OSSとしての公開配布は行っていません。
+**[データの扱い・削除・復旧・お問い合わせ](https://gotsugou-ukagai-kun.mrkw.chatgpt.site/guide)** を案内前に確認してください。
+
 ## 利用の流れ
 
 ![調整ページの作成・回答・集計・再編集の流れ](docs/usage-flow.svg)
@@ -68,13 +72,39 @@ PCではマウスを押したままドラッグ、スマートフォンでは指
 **ニックネームで回答し、本名・連絡先などの個人情報を名前欄やコメントに入力しないでください。**
 回答・集計URLを知っている人は、ニックネーム・時間帯の回答・コメントを閲覧できます。
 
+回答と調整ページは、主催者が管理画面から削除するまで保存します。現在、自動削除の期限はありません。
+自分の回答の削除は主催者へ依頼してください。運営者も運用のため保存データへアクセスできます。
+お問い合わせは、サイトを案内したコミュニティの告知スレッドで受け付けます。管理・編集URLやバックアップは投稿しないでください。
+
+### 連続投稿への対策
+
+| 操作 | 上限 |
+| --- | --- |
+| 接続元ごとの更新操作（保存・管理・復旧） | 10分の時間区切りごとに120回 |
+| 接続元ごとのページ作成・復旧 | 1時間の時間区切りごとに10回 |
+| 1ページへの新しい回答投稿 | 1分の時間区切りごとに60回 |
+| サイト全体のページ作成・復旧 | UTC日付ごとに200回 |
+| 1ページの回答件数 | 100件 |
+
+超過時はHTTP 429と再操作までの時間を返し、入力を画面に残します。同じネットワークの利用者は制限を共有する場合があります。
+接続元はCloudflareが付与するIPヘッダーで判定し、取得できない場合は共通の制限枠を使います。これは基本的な投稿対策で、分散した攻撃やすべての通信量を防ぐものではありません。
+DBにはIPそのものを保存せず、サーバーだけが持つ秘密鍵で作った時間区切りごとの識別子・回数・期限を保存します。期限後の記録は次の更新操作時に削除します。長期の利用者追跡やCookieは使いません。
+
+### 手動バックアップ・復旧
+
+主催者は管理画面から、設定と回答をJSONファイルに保存できます。ページを誤って削除した場合は元の管理URLを開き、そのファイルを選んで復旧できます。
+元の回答・集計・管理・編集URLを維持します。残っているページへの上書き、別の管理URL、改変したファイルは拒否します。
+ファイルには回答と権限復元用のハッシュが含まれます。管理・編集URLそのものは含まれませんが、ファイルも主催者だけで保管してください。ファイル保存後の変更は復旧対象に含まれません。
+削除済み回答が残った古いバックアップを復旧すると、その回答も再び表示されます。削除後は新しいバックアップを保存し、古いファイルを処分してください。
+
 ## ソースと公開の管理
 
 このGitHubリポジトリはソースと変更履歴の保存先です。公開はSitesで行い、回答はCloudflare D1の共有DBに保存します。
 ソースと回答データは別管理です。GitHubには回答DB、編集・管理キー、認証情報、ローカルのテスト回答を送信しません。
 
 ローカルのGit送信先は `github`、ブランチは `main` です。更新時は検証済みのソースをSitesとGitHubへ同期し、Sitesの保存済みバージョンを公開します。
-GitHubへの送信による自動公開は設定していません。回答DBのバックアップ・復元手順は未整備です。
+GitHubへの送信による自動公開は設定していません。手動バックアップの操作と更新・復旧手順は [運用手順](docs/operations.md) を参照してください。
+SitesのDB全体の自動バックアップ・復旧は、このアプリでは用意していません。サイト全体や署名用設定が失われた場合の復旧は未検証です。
 
 ## 開発・検証する方へ
 
@@ -83,7 +113,6 @@ GitHubへの送信による自動公開は設定していません。回答DBの
 ```sh
 npm run install:ci
 npm run build
-npm run start -- --port 5173
 ```
 
 初めてローカルDBを準備する場合は、ビルド後に初期SQLを一度だけ適用します。既存のDBに再適用しないでください。
@@ -91,16 +120,27 @@ npm run start -- --port 5173
 
 ```sh
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_black_hairball.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_request_limits.sql
 ```
+
+更新時は未適用のSQLだけを適用します。`0000` は既存DBへ再適用しません。
+ローカルサーバーには、下記の公開されたダミー値を指定できます。本番では使わないでください。
+
+```sh
+npm run start -- --port 5173 --var SERVICE_SIGNING_KEY:local-development-only-not-for-production-0000000000000000
+```
+
+本番ではSitesの環境変数 `SERVICE_SIGNING_KEY` を秘密値として設定します。32バイト以上の安全な乱数を生成し、ソース・README・GitHubへ保存しません。
+この鍵はバックアップの署名と短期間の投稿識別子に使います。変更すると旧バックアップは復旧できなくなるため、理由なく更新・削除しないでください。未設定時は更新操作を停止します。
 
 型チェックと集計・入力のテスト：
 
 ```sh
 npx tsc --noEmit
-node --experimental-strip-types --test tests/schedule.test.mjs
+node --experimental-strip-types --test tests/schedule.test.mjs tests/security.test.mjs
 ```
 
-ローカルサーバーを起動した状態で、保存・再編集などのAPIテストを実行できます。このテストはローカルDBに架空の回答を作成します。
+ローカルサーバーを起動した状態で、保存・再編集・バックアップ・復旧のAPIテストを実行できます。このテストはローカルDBに架空の回答を作成し、復旧テスト用のページだけ削除・復旧します。本番へ接続しません。
 
 ```sh
 node --experimental-strip-types --test tests/api.test.mjs
@@ -114,9 +154,13 @@ node --experimental-strip-types --test tests/api.test.mjs
 | `app/globals.css` | 画面と表のデザイン、スマートフォン対応 |
 | `app/api/[...path]/route.ts` | 回答の保存・復元、入力と編集権限の検証 |
 | `lib/schedule.ts` | 曜日・時間枠、〇・△の集計、旧回答の読み込み |
+| `lib/rate-limit.ts` / `lib/service-security.ts` | 投稿制限とサーバーの署名 |
+| `lib/backup.ts` | バックアップの署名・内容・権限の検証 |
+| `app/guide/page.tsx` | 利用者向けのデータ・削除・問い合わせ案内 |
 | `db/schema.ts` / `drizzle/` | DB構造と初期SQL |
 | `.openai/hosting.json` | Sitesの識別子と保存先の設定 |
 | `tests/` | 集計・入力・保存の自動テスト |
 
 既存の選択済み回答は〇として読み込みます。編集・管理キーはDBにハッシュで保存し、集計APIには返しません。
 Sitesで公開する際は、Sitesプラグインの手順に従ってビルド・ソース送信・バージョン保存・公開を行ってください。
+具体的な依頼例と複製時の注意点は [運用手順](docs/operations.md) にあります。自分のCloudflareアカウントへの直接公開は未対応・未検証です。Sites向けのこの設定に一般的なWrangler手順をそのまま適用しないでください。

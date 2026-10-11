@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { randomKey, DEFAULT_CONFIG } from '../lib/schedule.ts';
 const origin='http://127.0.0.1:5173';
 const config={...DEFAULT_CONFIG,days:[0,1,2,3,4,5,6,7]};
+// Only the local emulator accepts this fixture header; Cloudflare supplies it in production.
+const testAddress='2001:db8:'+randomKey().match(/.{4}/g).slice(0,6).join(':');
 async function call(path='',method='GET',body={},key='',override={}){
-  const result=await fetch(origin+'/api/events'+path,{method,headers:{'content-type':'application/json',origin,'x-edit-key':key,...override},...(method!=='GET'?{body:JSON.stringify(body)}:{})});
+  const result=await fetch(origin+'/api/events'+path,{method,headers:{'content-type':'application/json',origin,'x-edit-key':key,'cf-connecting-ip':testAddress,...override},...(method!=='GET'?{body:JSON.stringify(body)}:{})});
   const raw=await result.text();
   assert.ok(result.headers.get('content-type')?.includes('application/json'), `${result.status}: ${raw}`);
   return {status:result.status,data:JSON.parse(raw),headers:result.headers};
@@ -55,4 +57,39 @@ test('共有APIの保存・再編集・集計・権限・入力境界',async t=>
     const listing=await call('/'+event);assert.ok(listing.data.answers.some(a=>a.name===text));assert.equal(listing.data.answers.length,21);
   });
   // Deliberately preserve local test records. Deletion is not needed for this check.
+});
+
+test('バックアップ・削除・復旧の一連の操作と権限を検証',async t=>{
+  const admin=randomKey(),editor=randomKey(),wrong=randomKey();
+  const created=await call('','POST',{title:'復旧検証専用（架空）',description:'復旧のテスト',config},admin);
+  assert.equal(created.status,201);const event=created.data.id;
+  const createdAnswer=await call(`/${event}/answers`,'POST',{name:'復旧テスト',slots:['3:1140'],tentativeSlots:['7:480'],comment:'復旧後も残る補足',config},editor);
+  assert.equal(createdAnswer.status,201);const answer=createdAnswer.data.id;
+  let backup;
+  await t.test('本人だけがバックアップでき、通常の集計には署名・権限ハッシュを返さない',async()=>{
+    assert.equal((await call(`/${event}/backup`,'GET',{},wrong)).status,403);
+    const r=await call(`/${event}/backup`,'GET',{},admin);assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');backup=r.data;
+    const listing=await call('/'+event);assert.ok(!JSON.stringify(listing.data).includes('Hash'));assert.ok(!JSON.stringify(backup).includes(admin));assert.ok(!JSON.stringify(backup).includes(editor));
+  });
+  await t.test('既存ページへの上書き・別オリジン・改変したファイルを拒否',async()=>{
+    assert.equal((await call(`/${event}/restore`,'POST',backup,admin)).status,409);
+    assert.equal((await call(`/${event}/restore`,'POST',backup,admin,{origin:'https://example.invalid'})).status,403);
+    assert.equal((await call(`/${event}/restore`,'POST',{...backup,payload:backup.payload.replace('復旧のテスト','改変')},admin)).status,403);
+  });
+  await t.test('テストページ削除後、別の管理URLは拒否し、本人のバックアップは復旧できる',async()=>{
+    assert.equal((await call('/'+event,'DELETE',{},admin)).status,200);assert.equal((await call('/'+event)).status,404);
+    assert.equal((await call(`/${event}/restore`,'POST',backup,wrong)).status,403);
+    assert.equal((await call(`/${event}/restore`,'POST',backup,admin)).status,201);
+    const restored=await call(`/${event}/answers/${answer}`,'GET',{},editor);assert.equal(restored.status,200);assert.equal(restored.data.comment,'復旧後も残る補足');assert.deepEqual(restored.data.tentativeSlots,['7:480']);
+    assert.equal((await call(`/${event}?manage=1`,'GET',{},admin)).status,200);
+  });
+});
+
+test('ローカルの別接続元で作成上限を検証し、429直後も正しく応答する',async()=>{
+  const address='2001:db8:'+randomKey().match(/.{4}/g).slice(0,6).join(':');
+  const body={title:'投稿制限検証（架空）',description:'',config};
+  for(let i=0;i<10;i++)assert.equal((await call('','POST',body,randomKey(),{'cf-connecting-ip':address})).status,201);
+  for(let i=0;i<2;i++){
+    const r=await call('','POST',body,randomKey(),{'cf-connecting-ip':address});assert.equal(r.status,429);assert.ok(Number(r.headers.get('retry-after'))>0);assert.match(r.data.error,/入力内容はそのまま/);
+  }
 });
